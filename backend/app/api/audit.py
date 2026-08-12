@@ -51,9 +51,10 @@ def run_compliance_audit(request: AuditRequest):
             retrieval=AuditRetrievalResponse(
                 company_policy=retrieval_result.company_policy,
                 regulations=retrieval_result.regulations,
-                confidence=final_state.get("confidence"),
+                confidence=final_state.get("retrieval_confidence") if final_state.get("retrieval_confidence") is not None else retrieval_result.confidence,
                 confidence_level=final_state.get("confidence_level")
-            )
+            ),
+            compliance=final_state.get("compliance_analysis")
         )
         return response
 

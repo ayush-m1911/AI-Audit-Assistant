@@ -1,6 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from app.models.evidence_models import Evidence
+from app.models.compliance_models import ComplianceAnalysis
 
 
 class AuditRequest(BaseModel):
@@ -33,3 +34,4 @@ class AuditResponse(BaseModel):
     question: str = Field(..., description="Original user question")
     planner: AuditPlannerResponse = Field(..., description="Planner node execution state details")
     retrieval: AuditRetrievalResponse = Field(..., description="Evidence retrieval node execution state details")
+    compliance: Optional[ComplianceAnalysis] = Field(None, description="Compliance agent reasoning analysis and findings details")
