@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
 from app.api.upload import router as upload_router
-from app.api.audit import router as audit_router
+from app.api.search import router as search_router
 from app.database.connection import engine, Base
 from app.database import schema  # Required to register models with Base.metadata
 
@@ -46,9 +46,10 @@ app.include_router(
 )
 
 app.include_router(
-    audit_router,
+    search_router,
     tags=["RAG Retrieval"]
 )
+
 
 
 
