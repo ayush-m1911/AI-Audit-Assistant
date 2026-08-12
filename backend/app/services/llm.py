@@ -46,6 +46,24 @@ class LLMService:
             logger.error(f"Failed to invoke LLM: {e}", exc_info=True)
             raise e
 
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> Any:
+        """Expose LangChain's structured output capability.
+
+        Args:
+            schema: The Pydantic model class or Dict schema to structure output.
+            **kwargs: Extra parameters to pass to with_structured_output.
+
+        Returns:
+            A runnable sequence that returns the structured output.
+        """
+        logger.debug(f"Creating structured output runnable for schema: {schema}")
+        try:
+            return self._llm.with_structured_output(schema, **kwargs)
+        except Exception as e:
+            logger.error(f"Failed to create structured output: {e}", exc_info=True)
+            raise e
+
 
 # Create the singleton LLM service instance
-llm_service = LLMService()
+llm_service = LLMService()
+
