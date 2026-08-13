@@ -318,7 +318,8 @@ def test_risk_node_state_update(mock_risk_agent):
 @patch("app.graph.nodes.retrieval_service")
 @patch("app.graph.nodes.compliance_agent")
 @patch("app.graph.nodes.risk_agent")
-def test_full_graph_execution(mock_risk_agent, mock_compliance_agent, mock_retrieval_service, mock_planner_agent):
+@patch("app.graph.nodes.recommendation_agent")
+def test_full_graph_execution(mock_rec_agent, mock_risk_agent, mock_compliance_agent, mock_retrieval_service, mock_planner_agent):
     mock_planner_agent.plan.return_value = PlannerOutput(
         audit_type="regulatory_compliance",
         subject="backup",
@@ -375,6 +376,12 @@ def test_full_graph_execution(mock_risk_agent, mock_compliance_agent, mock_retri
             )
         ],
         summary="Risk analysis summary"
+    )
+
+    from app.models.recommendation_models import RecommendationAnalysisLLM
+    mock_rec_agent.recommend.return_value = RecommendationAnalysisLLM(
+        recommendations=[],
+        summary="Remediation"
     )
 
     result = audit_graph_service.run_audit("Audit backups?")

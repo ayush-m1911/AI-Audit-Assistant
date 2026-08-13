@@ -55,9 +55,11 @@ def run_compliance_audit(request: AuditRequest):
                 confidence_level=final_state.get("confidence_level")
             ),
             compliance=final_state.get("compliance_analysis"),
-            risk=final_state.get("risk_analysis")
+            risk=final_state.get("risk_analysis"),
+            recommendations=final_state.get("recommendation_analysis")
         )
         return response
+
 
 
     except ValueError as ve:

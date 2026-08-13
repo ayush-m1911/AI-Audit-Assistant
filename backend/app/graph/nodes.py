@@ -3,8 +3,11 @@ from app.graph.state import AuditState
 from app.agents.planner import PlannerAgent
 from app.agents.compliance import ComplianceAgent
 from app.agents.risk import RiskAgent
+from app.agents.recommendation import RecommendationAgent
 from app.models.risk_models import RiskAnalysis, RiskAssessment
 from app.models.risk_scoring import calculate_risk_score, map_score_to_level
+from app.models.recommendation_models import RecommendationAnalysis, Recommendation
+from app.models.recommendation_scoring import risk_level_to_priority
 from app.services.retriever import retrieval_service
 from app.utils.logger import logger
 
@@ -12,6 +15,7 @@ from app.utils.logger import logger
 planner_agent = PlannerAgent()
 compliance_agent = ComplianceAgent()
 risk_agent = RiskAgent()
+recommendation_agent = RecommendationAgent()
 
 
 def planner_node(state: AuditState) -> Dict[str, Any]:
@@ -191,4 +195,123 @@ def risk_node(state: AuditState) -> Dict[str, Any]:
         err_msg = f"Risk analysis failure: {str(e)}"
         logger.error(err_msg, exc_info=True)
         raise ValueError(err_msg)
+
+
+def recommendation_node(state: AuditState) -> Dict[str, Any]:
+    """LangGraph node representing the remediation recommendations stage.
+
+    Uses RecommendationAgent to generate actionable guidance, mapping priorities and
+    evidence from upstream compliance and risk analysis.
+    """
+    logger.info("Recommendation analysis node started")
+
+    compliance_analysis = state.get("compliance_analysis")
+    risk_analysis = state.get("risk_analysis")
+
+    if not compliance_analysis:
+        err_msg = "Critical error in recommendation node: compliance_analysis is missing from graph state."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    if not risk_analysis:
+        err_msg = "Critical error in recommendation node: risk_analysis is missing from graph state."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    # Handle insufficient compliance evidence (Requirement 9)
+    if compliance_analysis.overall_status == "insufficient_evidence":
+        logger.info("Compliance status is insufficient_evidence. Skipping recommendation generation.")
+        insufficient_recs = RecommendationAnalysis(
+            recommendations=[],
+            summary="Remediation recommendations skipped: compliance evidence was insufficient to perform assessment.",
+            overall_priority="low"
+        )
+        return {"recommendation_analysis": insufficient_recs}
+
+    # Handle fully compliant case with no residual risks (Requirement 8)
+    all_compliant = all(f.status == "compliant" for f in compliance_analysis.findings)
+    if all_compliant and len(risk_analysis.assessments) == 0:
+        logger.info("All findings are compliant. Returning empty recommendation list.")
+        compliant_recs = RecommendationAnalysis(
+            recommendations=[],
+            summary="No remediation actions are currently required because all evaluated controls are compliant.",
+            overall_priority="low"
+        )
+        return {"recommendation_analysis": compliant_recs}
+
+    try:
+        # Call RecommendationAgent to generate textual content
+        llm_result = recommendation_agent.recommend(compliance_analysis, risk_analysis)
+        logger.info(f"Intermediate recommendations generated. Mapping priorities and verifying evidence...")
+
+        # Build risk lookup map for priority calculation (Requirement 6)
+        risk_map = {a.finding_id: a.risk_level for a in risk_analysis.assessments}
+
+        recommendations = []
+        priority_ranks = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+        highest_rank = -1
+        overall_priority = "low"
+
+        for item in llm_result.recommendations:
+            # Safe finding_id suffix extraction (Requirement 7)
+            finding_idx = None
+            if item.finding_id.startswith("finding_"):
+                try:
+                    finding_idx = int(item.finding_id.split("_")[1])
+                except (ValueError, IndexError):
+                    pass
+
+            if finding_idx is not None and 0 <= finding_idx < len(compliance_analysis.findings):
+                original_finding = compliance_analysis.findings[finding_idx]
+            else:
+                logger.warning(
+                    f"Recommendation generated invalid finding_id: '{item.finding_id}'. Skipping."
+                )
+                continue
+
+            # Deterministic priority mapping (Requirement 5 & 6)
+            risk_level = risk_map.get(item.finding_id, "low")
+            priority = risk_level_to_priority(risk_level)
+
+            # Preserve evidence provenance (Requirement 10)
+            evidence_preserved = original_finding.evidence
+
+            # Build final recommendation object
+            rec = Recommendation(
+                finding_id=item.finding_id,
+                control=original_finding.control,
+                priority=priority,
+                recommendation=item.recommendation,
+                rationale=item.rationale,
+                implementation_steps=item.implementation_steps,
+                evidence=evidence_preserved
+            )
+            recommendations.append(rec)
+
+            # Overall priority calculation based on highest individual rank
+            rank = priority_ranks.get(priority, 0)
+            if rank > highest_rank:
+                highest_rank = rank
+                overall_priority = priority
+
+            logger.info(
+                f"Recommendation generated for control '{original_finding.control}': priority={priority}"
+            )
+
+        final_rec_analysis = RecommendationAnalysis(
+            recommendations=recommendations,
+            summary=llm_result.summary,
+            overall_priority=overall_priority
+        )
+
+        logger.info(
+            f"Recommendation analysis completed: overall_priority={overall_priority}, count={len(recommendations)}"
+        )
+        return {"recommendation_analysis": final_rec_analysis}
+
+    except Exception as e:
+        err_msg = f"Recommendation analysis failure: {str(e)}"
+        logger.error(err_msg, exc_info=True)
+        raise ValueError(err_msg)
+
 

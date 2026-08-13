@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from app.models.evidence_models import Evidence
 from app.models.compliance_models import ComplianceAnalysis
 from app.models.risk_models import RiskAnalysis
+from app.models.recommendation_models import RecommendationAnalysis
 
 
 class AuditRequest(BaseModel):
@@ -37,4 +38,6 @@ class AuditResponse(BaseModel):
     retrieval: AuditRetrievalResponse = Field(..., description="Evidence retrieval node execution state details")
     compliance: Optional[ComplianceAnalysis] = Field(None, description="Compliance agent reasoning analysis and findings details")
     risk: Optional[RiskAnalysis] = Field(None, description="Risk agent analysis scoring and assessments")
+    recommendations: Optional[RecommendationAnalysis] = Field(None, description="Actionable remediation recommendations and steps details")
+
 
