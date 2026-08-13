@@ -9,6 +9,7 @@ from app.models.risk_scoring import calculate_risk_score, map_score_to_level
 from app.models.recommendation_models import RecommendationAnalysis, Recommendation
 from app.models.recommendation_scoring import risk_level_to_priority
 from app.services.retriever import retrieval_service
+from app.services.confidence_gate import confidence_gate_service
 from app.utils.logger import logger
 
 # Instantiate Agents
@@ -313,5 +314,84 @@ def recommendation_node(state: AuditState) -> Dict[str, Any]:
         err_msg = f"Recommendation analysis failure: {str(e)}"
         logger.error(err_msg, exc_info=True)
         raise ValueError(err_msg)
+
+
+def confidence_gate_node(state: AuditState) -> Dict[str, Any]:
+    """LangGraph node representing the deterministic confidence gate stage.
+
+    Reads retrieval and compliance metrics to evaluate if a human-in-the-loop review
+    is required.
+    """
+    logger.info("Confidence gate node started")
+
+    retrieval_result = state.get("retrieval_result")
+    compliance_analysis = state.get("compliance_analysis")
+    risk_analysis = state.get("risk_analysis")
+
+    if not compliance_analysis:
+        err_msg = "Critical error in confidence gate node: compliance_analysis is missing."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    if not risk_analysis:
+        err_msg = "Critical error in confidence gate node: risk_analysis is missing."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    # Retrieval confidence
+    retrieval_confidence = state.get("retrieval_confidence")
+    if retrieval_confidence is None:
+        retrieval_confidence = retrieval_result.confidence if retrieval_result else 0.0
+
+    # Compliance confidence
+    compliance_confidence = state.get("compliance_confidence")
+    if compliance_confidence is None:
+        compliance_confidence = compliance_analysis.confidence if compliance_analysis else 0.0
+
+    # Run deterministic gate logic
+    gate_result = confidence_gate_service.evaluate_gate(
+        retrieval_confidence=retrieval_confidence,
+        compliance_analysis=compliance_analysis,
+        compliance_confidence=compliance_confidence,
+        risk_analysis=risk_analysis
+    )
+
+    logger.info(
+        f"Confidence gate result: review_required={gate_result.review_required}, "
+        f"reasons={gate_result.reasons}"
+    )
+
+    return {
+        "review_required": gate_result.review_required,
+        "review_reasons": gate_result.reasons,
+        "review_status": "pending" if gate_result.review_required else "not_required"
+    }
+
+
+def human_review_node(state: AuditState) -> Dict[str, Any]:
+    """LangGraph node representing the human-in-the-loop review stage.
+
+    Applies the reviewer's decision to update the state status once the graph is resumed.
+    """
+    logger.info("Human review node started")
+
+    decision = state.get("review_decision")
+    comment = state.get("reviewer_comment")
+
+    logger.info(f"Human review node received decision: {decision}, comment: {comment}")
+
+    if decision == "approve":
+        status = "approved"
+    elif decision == "reject":
+        status = "rejected"
+    elif decision == "request_more_evidence":
+        status = "needs_more_evidence"
+    else:
+        status = "pending"
+
+    return {
+        "review_status": status
+    }
+
 
 

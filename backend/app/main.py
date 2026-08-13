@@ -6,8 +6,10 @@ from app.api.health import router as health_router
 from app.api.upload import router as upload_router
 from app.api.search import router as search_router
 from app.api.audit import router as audit_router
+from app.api.review import router as review_router
 from app.database.connection import engine, Base
 from app.database import schema  # Required to register models with Base.metadata
+from app.utils.logger import logger
 
 
 @asynccontextmanager
@@ -15,6 +17,17 @@ async def lifespan(app: FastAPI):
     """Context manager for startup and shutdown event lifecycle."""
     # Automatically create database tables if they do not exist
     Base.metadata.create_all(bind=engine)
+
+    # Initialize checkpointer database tables (if supported)
+    from app.graph.workflow import checkpointer
+    if hasattr(checkpointer, "setup"):
+        try:
+            logger.info("Initializing Postgres checkpointer database tables...")
+            checkpointer.setup()
+            logger.info("Postgres checkpointer database tables initialized.")
+        except Exception as e:
+            logger.error(f"Failed to setup Postgres checkpointer: {e}", exc_info=True)
+
     yield
 
 
@@ -55,6 +68,12 @@ app.include_router(
     audit_router,
     tags=["Audit Workflow"]
 )
+
+app.include_router(
+    review_router,
+    tags=["Audit Workflow"]
+)
+
 
 
 

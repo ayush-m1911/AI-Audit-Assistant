@@ -30,11 +30,22 @@ class AuditState(TypedDict):
     # Core Phase 4D fields
     recommendation_analysis: Optional[RecommendationAnalysis]
 
-    # Reserved fields for future agent phases (Phase 4E - 4F)
+    # Core Phase 4E fields
+    review_status: Optional[str]
+    review_required: Optional[bool]
+    review_reasons: Optional[List[str]]
+    review_id: Optional[str]
+    review_decision: Optional[str]
+    reviewer_comment: Optional[str]
+    review_request: Optional[Dict[str, Any]]
+
+    # Reserved fields for future agent phases (Phase 4F)
     compliance_findings: Optional[List[Any]]
     risk_assessment: Optional[Dict[str, Any]]
     recommendations: Optional[List[Any]]
-    review_status: Optional[str]
+    review_status_legacy: Optional[str]
     final_report: Optional[Dict[str, Any]]
+
+
 
 

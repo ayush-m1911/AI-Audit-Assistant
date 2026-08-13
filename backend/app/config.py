@@ -27,7 +27,13 @@ class Settings:
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "data/uploads")
     REPORT_DIR: str = os.getenv("REPORT_DIR", "reports")
 
+    # -------------------- Phase 4E Human-in-the-Loop --------------------
+    RETRIEVAL_CONFIDENCE_REVIEW_THRESHOLD: float = float(os.getenv("RETRIEVAL_CONFIDENCE_REVIEW_THRESHOLD", "0.50"))
+    COMPLIANCE_CONFIDENCE_REVIEW_THRESHOLD: float = float(os.getenv("COMPLIANCE_CONFIDENCE_REVIEW_THRESHOLD", "0.50"))
+    CRITICAL_RISK_REQUIRES_REVIEW: bool = os.getenv("CRITICAL_RISK_REQUIRES_REVIEW", "true").lower() == "true"
+
     def __init__(self) -> None:
+
         """Initialize and validate settings."""
         # Ensure directories exist
         os.makedirs(self.UPLOAD_DIR, exist_ok=True)

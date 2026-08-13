@@ -19,7 +19,8 @@ class RiskAnalysisLLM(BaseModel):
     """Pydantic model representing structured LLM report containing multiple findings."""
 
     assessments: List[RiskFactorAssessment] = Field(..., description="List of individual finding risk factor assessments")
-    summary: str = Field(..., description="Summary overview of the risk landscape evaluated")
+    summary: str = Field(default="", description="Summary overview of the risk landscape evaluated")
+
 
 
 class RiskAssessment(BaseModel):
