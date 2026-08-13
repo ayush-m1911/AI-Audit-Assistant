@@ -54,9 +54,11 @@ def run_compliance_audit(request: AuditRequest):
                 confidence=final_state.get("retrieval_confidence") if final_state.get("retrieval_confidence") is not None else retrieval_result.confidence,
                 confidence_level=final_state.get("confidence_level")
             ),
-            compliance=final_state.get("compliance_analysis")
+            compliance=final_state.get("compliance_analysis"),
+            risk=final_state.get("risk_analysis")
         )
         return response
+
 
     except ValueError as ve:
         logger.error(f"Validation or user-input error in compliance audit: {ve}", exc_info=True)

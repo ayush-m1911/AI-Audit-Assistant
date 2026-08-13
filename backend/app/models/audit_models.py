@@ -2,6 +2,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from app.models.evidence_models import Evidence
 from app.models.compliance_models import ComplianceAnalysis
+from app.models.risk_models import RiskAnalysis
 
 
 class AuditRequest(BaseModel):
@@ -35,3 +36,5 @@ class AuditResponse(BaseModel):
     planner: AuditPlannerResponse = Field(..., description="Planner node execution state details")
     retrieval: AuditRetrievalResponse = Field(..., description="Evidence retrieval node execution state details")
     compliance: Optional[ComplianceAnalysis] = Field(None, description="Compliance agent reasoning analysis and findings details")
+    risk: Optional[RiskAnalysis] = Field(None, description="Risk agent analysis scoring and assessments")
+

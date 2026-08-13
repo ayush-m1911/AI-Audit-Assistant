@@ -2,12 +2,16 @@ from typing import Dict, Any
 from app.graph.state import AuditState
 from app.agents.planner import PlannerAgent
 from app.agents.compliance import ComplianceAgent
+from app.agents.risk import RiskAgent
+from app.models.risk_models import RiskAnalysis, RiskAssessment
+from app.models.risk_scoring import calculate_risk_score, map_score_to_level
 from app.services.retriever import retrieval_service
 from app.utils.logger import logger
 
 # Instantiate Agents
 planner_agent = PlannerAgent()
 compliance_agent = ComplianceAgent()
+risk_agent = RiskAgent()
 
 
 def planner_node(state: AuditState) -> Dict[str, Any]:
@@ -92,3 +96,99 @@ def compliance_node(state: AuditState) -> Dict[str, Any]:
         err_msg = f"Compliance analysis failure: {str(e)}"
         logger.error(err_msg, exc_info=True)
         raise ValueError(err_msg)
+
+
+def risk_node(state: AuditState) -> Dict[str, Any]:
+    """LangGraph node representing the risk assessment stage.
+
+    Uses RiskAgent to evaluate risk severity, likelihood, and impact for compliance findings,
+    then calculates deterministic risk scores and levels.
+    """
+    logger.info("Risk analysis node started")
+
+    compliance_analysis = state.get("compliance_analysis")
+    if not compliance_analysis:
+        err_msg = "Critical error in risk node: compliance_analysis is missing from graph state."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    # Handle insufficient compliance evidence (Requirement 9)
+    if compliance_analysis.overall_status == "insufficient_evidence":
+        logger.info("Compliance status is insufficient_evidence. Bypassing normal risk assessment.")
+        insufficient_risk = RiskAnalysis(
+            overall_risk_level="low",
+            overall_risk_score=0,
+            assessments=[],
+            summary="Risk assessment skipped: compliance evidence was insufficient to perform assessment."
+        )
+        return {"risk_analysis": insufficient_risk}
+
+    try:
+        # Call RiskAgent to generate intermediate factor recommendations
+        llm_result = risk_agent.assess(compliance_analysis)
+        logger.info(f"Intermediate risk factors generated. Validating and calculating scores...")
+
+        assessments = []
+        for item in llm_result.assessments:
+            # Safe finding_id suffix extraction (Requirement 7)
+            finding_idx = None
+            if item.finding_id.startswith("finding_"):
+                try:
+                    finding_idx = int(item.finding_id.split("_")[1])
+                except (ValueError, IndexError):
+                    pass
+
+            if finding_idx is not None and 0 <= finding_idx < len(compliance_analysis.findings):
+                original_finding = compliance_analysis.findings[finding_idx]
+            else:
+                logger.warning(f"Risk assessment generated invalid finding_id: '{item.finding_id}'. Skipping.")
+                continue
+
+            # Validate constraints (Requirement 15)
+            severity = max(1, min(5, item.severity))
+            likelihood = max(1, min(5, item.likelihood))
+            impact = max(1, min(5, item.impact))
+
+            # Deterministic scoring (Requirement 2 & 3)
+            risk_score = calculate_risk_score(severity, likelihood, impact)
+            risk_level = map_score_to_level(risk_score)
+
+            # Build validated assessment preserving original evidence
+            assessment = RiskAssessment(
+                finding_id=item.finding_id,
+                control=original_finding.control,
+                risk_level=risk_level,
+                severity=severity,
+                likelihood=likelihood,
+                impact=impact,
+                risk_score=risk_score,
+                rationale=item.rationale,
+                evidence=original_finding.evidence
+            )
+            assessments.append(assessment)
+
+            logger.info(
+                f"Finding '{original_finding.control}' assessed: score={risk_score}, level={risk_level}"
+            )
+
+        # Calculate overall risk based on highest individual risk score (Requirement 10)
+        overall_risk_score = max([a.risk_score for a in assessments]) if assessments else 0
+        overall_risk_level = map_score_to_level(overall_risk_score)
+
+        final_risk_analysis = RiskAnalysis(
+            overall_risk_level=overall_risk_level,
+            overall_risk_score=overall_risk_score,
+            assessments=assessments,
+            summary=llm_result.summary
+        )
+
+        logger.info(
+            f"Risk analysis completed: overall_score={overall_risk_score}, overall_level={overall_risk_level}"
+        )
+        return {"risk_analysis": final_risk_analysis}
+
+    except Exception as e:
+        err_msg = f"Risk analysis failure: {str(e)}"
+        logger.error(err_msg, exc_info=True)
+        raise ValueError(err_msg)
+

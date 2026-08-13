@@ -1,6 +1,7 @@
 from typing import TypedDict, List, Optional, Any, Dict
 from app.models.evidence_models import RetrievalResult
 from app.models.compliance_models import ComplianceAnalysis
+from app.models.risk_models import RiskAnalysis
 
 
 class AuditState(TypedDict):
@@ -22,9 +23,13 @@ class AuditState(TypedDict):
     retrieval_confidence: Optional[float]
     compliance_confidence: Optional[float]
 
-    # Reserved fields for future agent phases (Phase 4C - 4F)
+    # Core Phase 4C fields
+    risk_analysis: Optional[RiskAnalysis]
+
+    # Reserved fields for future agent phases (Phase 4D - 4F)
     compliance_findings: Optional[List[Any]]
     risk_assessment: Optional[Dict[str, Any]]
     recommendations: Optional[List[Any]]
     review_status: Optional[str]
     final_report: Optional[Dict[str, Any]]
+
