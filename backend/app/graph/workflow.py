@@ -7,14 +7,15 @@ from app.graph.nodes import (
     risk_node,
     recommendation_node,
     confidence_gate_node,
-    human_review_node
+    human_review_node,
+    report_node
 )
 
 
 # Initialize StateGraph with the custom AuditState TypedDict
 workflow = StateGraph(AuditState)
 
-# Register planner, retriever, compliance, risk, recommendation, confidence gate, and human review nodes
+# Register nodes
 workflow.add_node("planner", planner_node)
 workflow.add_node("retriever", retrieval_node)
 workflow.add_node("compliance", compliance_node)
@@ -22,6 +23,7 @@ workflow.add_node("risk", risk_node)
 workflow.add_node("recommendation", recommendation_node)
 workflow.add_node("confidence_gate", confidence_gate_node)
 workflow.add_node("human_review", human_review_node)
+workflow.add_node("report", report_node)
 
 # Configure sequential execution edges
 workflow.add_edge(START, "planner")
@@ -32,12 +34,12 @@ workflow.add_edge("risk", "recommendation")
 workflow.add_edge("recommendation", "confidence_gate")
 
 
-# Configure conditional edge routing after confidence gate
+# Configure conditional edge routing after confidence gate (Requirement 10 & 23)
 def route_after_gate(state: AuditState) -> str:
-    """Route to human review if gate reports review required, otherwise END."""
+    """Route to human review if gate reports review required, otherwise to report generation."""
     if state.get("review_required"):
         return "human_review"
-    return END
+    return "report"
 
 
 workflow.add_conditional_edges(
@@ -45,12 +47,31 @@ workflow.add_conditional_edges(
     route_after_gate,
     {
         "human_review": "human_review",
+        "report": "report"
+    }
+)
+
+
+# Configure conditional edge routing after human review (Requirement 10 & 23)
+def route_after_review(state: AuditState) -> str:
+    """Route to report generation if approved, otherwise terminate workflow immediately."""
+    if state.get("review_status") == "approved":
+        return "report"
+    return END
+
+
+workflow.add_conditional_edges(
+    "human_review",
+    route_after_review,
+    {
+        "report": "report",
         END: END
     }
 )
 
-# Route human review completion to END
-workflow.add_edge("human_review", END)
+# Route report node completion to END
+workflow.add_edge("report", END)
+
 
 # Set up PostgreSQL checkpointer with InMemory fallback for test suites
 import sys

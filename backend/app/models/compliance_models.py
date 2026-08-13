@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 from app.models.evidence_models import Evidence
 
@@ -42,6 +42,7 @@ class ComplianceAnalysisLLM(BaseModel):
 class ComplianceFinding(BaseModel):
     """Pydantic model representing a compliance evaluation finding for a specific control."""
 
+    finding_id: Optional[str] = Field(None, description="Stable identifier for finding traceability")
     control: str = Field(..., description="The name of the control being evaluated (e.g. Multi-Factor Authentication)")
     status: Literal["compliant", "partially_compliant", "non_compliant", "insufficient_evidence"] = Field(
         ...,
@@ -51,6 +52,7 @@ class ComplianceFinding(BaseModel):
     regulatory_requirement: str = Field(..., description="Description of the requirements under the regulation framework")
     reasoning: str = Field(..., description="Reasoning comparing policy and regulation evidence")
     evidence: List[Evidence] = Field(..., description="List of evidence objects cited to back this finding")
+
 
 
 class ComplianceAnalysis(BaseModel):

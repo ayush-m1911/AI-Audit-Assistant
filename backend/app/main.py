@@ -7,9 +7,11 @@ from app.api.upload import router as upload_router
 from app.api.search import router as search_router
 from app.api.audit import router as audit_router
 from app.api.review import router as review_router
+from app.api.reports import router as reports_router
 from app.database.connection import engine, Base
 from app.database import schema  # Required to register models with Base.metadata
 from app.utils.logger import logger
+
 
 
 @asynccontextmanager
@@ -73,6 +75,12 @@ app.include_router(
     review_router,
     tags=["Audit Workflow"]
 )
+
+app.include_router(
+    reports_router,
+    tags=["Audit Workflow"]
+)
+
 
 
 

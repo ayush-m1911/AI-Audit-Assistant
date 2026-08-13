@@ -1,5 +1,7 @@
 from typing import Dict, Any
+from langchain_core.runnables import RunnableConfig
 from app.graph.state import AuditState
+
 from app.agents.planner import PlannerAgent
 from app.agents.compliance import ComplianceAgent
 from app.agents.risk import RiskAgent
@@ -392,6 +394,48 @@ def human_review_node(state: AuditState) -> Dict[str, Any]:
     return {
         "review_status": status
     }
+
+
+def report_node(state: AuditState, config: RunnableConfig) -> Dict[str, Any]:
+    """LangGraph node representing the final synthesis and persistence stage.
+
+    Retrieves all validated agent outputs, verifies HITL review state decisions,
+    triggers executive summary generation, and persists versioned reports to DB.
+    """
+    logger.info("Report node started")
+
+    # Extract thread session configuration
+    thread_id = config["configurable"].get("thread_id")
+    if not thread_id:
+        import uuid
+        thread_id = str(uuid.uuid4())
+        logger.warning(f"No thread_id configured. Generated default: {thread_id}")
+
+    from app.database.connection import SessionLocal
+    from app.services.report_generator import report_generator_service
+
+    with SessionLocal() as db:
+        try:
+            # Assembly & save database record
+            report = report_generator_service.generate_report(state, thread_id, db)
+
+            # Dump report representation to persist in Graph State
+            report_dict = report.model_dump()
+
+            # Ensure datetime properties are serialized to ISO format strings
+            if report_dict.get("generated_at"):
+                report_dict["generated_at"] = report.generated_at.isoformat()
+            if report_dict.get("human_review") and report_dict["human_review"].get("timestamp"):
+                report_dict["human_review"]["timestamp"] = report.human_review.timestamp.isoformat()
+
+            return {
+                "final_report": report_dict,
+                "review_status": report.status.value
+            }
+        except Exception as e:
+            logger.error(f"Report node execution failed: {e}", exc_info=True)
+            raise ValueError(f"Report node failure: {str(e)}")
+
 
 
 
