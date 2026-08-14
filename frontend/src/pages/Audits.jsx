@@ -62,10 +62,22 @@ export default function Audits() {
 
   // Dynamic Header actions
   const headerAction = (status || error || loading) ? (
-    <button className="btn btn-secondary" onClick={handleReset} disabled={loading}>
-      <ArrowLeft size={16} />
-      <span>New Audit</span>
-    </button>
+    <div style={{ display: 'flex', gap: '12px' }}>
+      {status === 'completed' && auditResult?.report_id && (
+        <button 
+          className="btn btn-primary" 
+          onClick={() => navigate(`/reports/${auditResult.report_id}`)}
+          style={{ width: 'auto' }}
+        >
+          <FileText size={16} />
+          <span>View Final Report</span>
+        </button>
+      )}
+      <button className="btn btn-secondary" onClick={handleReset} disabled={loading} style={{ width: 'auto' }}>
+        <ArrowLeft size={16} />
+        <span>New Audit</span>
+      </button>
+    </div>
   ) : null;
 
   return (

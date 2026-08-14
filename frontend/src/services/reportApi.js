@@ -34,5 +34,26 @@ export const reportApi = {
    */
   downloadReportUrl(reportId) {
     return `${API_BASE_URL}/reports/${reportId}/download`;
+  },
+
+  /**
+   * Fetches the Markdown report binary stream and triggers native browser save action.
+   * 
+   * @param {string} reportId - The ID of the report to download.
+   */
+  async downloadReport(reportId) {
+    const response = await fetch(this.downloadReportUrl(reportId));
+    if (!response.ok) {
+      throw new Error('Failed to compile or download report.');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit_report_${reportId}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   }
 };
