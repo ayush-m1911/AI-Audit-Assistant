@@ -4,7 +4,7 @@ import { Download, ArrowLeft } from 'lucide-react';
 export default function ReportActions({ onDownload, onBack, downloading }) {
   return (
     <div 
-      className="card" 
+      className="card report-actions" 
       style={{ 
         marginBottom: '24px',
         backgroundColor: 'var(--bg-secondary)',

@@ -106,21 +106,24 @@ export default function RecommendationResults({ recommendations }) {
                 {rec.evidence && rec.evidence.length > 0 && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SOURCE REFERENCES:</span>
-                    {rec.evidence.map((ev, evIdx) => (
-                      <span 
-                        key={evIdx} 
-                        style={{ 
-                          fontSize: '0.7rem', 
-                          backgroundColor: 'var(--bg-tertiary)', 
-                          color: 'var(--text-secondary)', 
-                          padding: '2px 8px', 
-                          borderRadius: '4px',
-                          fontFamily: 'var(--font-mono)'
-                        }}
-                      >
-                        {ev}
-                      </span>
-                    ))}
+                    {rec.evidence.map((ev, evIdx) => {
+                      const label = typeof ev === 'string' ? ev : (ev.filename || ev.source || 'Evidence Reference');
+                      return (
+                        <span 
+                          key={evIdx} 
+                          style={{ 
+                            fontSize: '0.7rem', 
+                            backgroundColor: 'var(--bg-tertiary)', 
+                            color: 'var(--text-secondary)', 
+                            padding: '2px 8px', 
+                            borderRadius: '4px',
+                            fontFamily: 'var(--font-mono)'
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>

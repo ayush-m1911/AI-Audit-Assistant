@@ -84,7 +84,7 @@ export default function Reviews() {
     setReview(null);
 
     // Sandbox Mock Toggle
-    if (id === 'mock_review_123') {
+    if (import.meta.env.DEV && id === 'mock_review_123') {
       setTimeout(() => {
         setReview(MOCK_REVIEW_FIXTURE);
         setLoading(false);
@@ -124,7 +124,7 @@ export default function Reviews() {
     setDecisionError(null);
 
     // Sandbox Mock Success
-    if (reviewId === 'mock_review_123') {
+    if (import.meta.env.DEV && reviewId === 'mock_review_123') {
       setTimeout(() => {
         const statusMap = {
           approve: 'approved',

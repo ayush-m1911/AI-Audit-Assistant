@@ -102,31 +102,58 @@ export default function Reports() {
   const [searchError, setSearchError] = useState(null);
 
   // Report details state
+  // Report details state
   const [report, setReport] = useState(null);
+  const [evidence, setEvidence] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [downloading, setDownloading] = useState(false);
+  const [evidenceError, setEvidenceError] = useState(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
 
   const fetchReport = async (id) => {
     setLoading(true);
     setError(null);
     setReport(null);
+    setEvidence([]);
+    setEvidenceError(null);
+    setDownloadError(null);
 
     // Sandbox Mock Toggle
-    if (id === 'mock_report_123') {
+    if (import.meta.env.DEV && id === 'mock_report_123') {
       setTimeout(() => {
         setReport(MOCK_REPORT_FIXTURE);
         setLoading(false);
+        
+        // Simulate evidence loading separately
+        setEvidenceLoading(true);
+        setTimeout(() => {
+          setEvidence(MOCK_REPORT_FIXTURE.evidence_summary);
+          setEvidenceLoading(false);
+        }, 500);
       }, 600);
       return;
     }
 
     try {
+      // 1. Fetch Report Details
       const data = await reportApi.getReport(id);
       setReport(data);
+      setLoading(false);
+
+      // 2. Fetch Evidence Details separately
+      setEvidenceLoading(true);
+      try {
+        const evidenceData = await reportApi.getReportEvidence(id);
+        setEvidence(evidenceData || []);
+      } catch (evErr) {
+        setEvidenceError('Evidence unavailable: The report was loaded, but evidence references could not be retrieved.');
+      } finally {
+        setEvidenceLoading(false);
+      }
     } catch (err) {
-      setError(err.message || 'The requested audit report could not be found or connection failed.');
-    } finally {
+      setError('Report not found: The requested audit report could not be located.');
       setLoading(false);
     }
   };
@@ -150,13 +177,14 @@ export default function Reports() {
 
   const handleDownload = async () => {
     if (!reportId) return;
-    setDownloading(true);
+    setDownloadLoading(true);
+    setDownloadError(null);
 
     // Sandbox Mock Download
-    if (reportId === 'mock_report_123') {
+    if (import.meta.env.DEV && reportId === 'mock_report_123') {
       setTimeout(() => {
-        // Compile mock markdown file client-side
-        const mdText = `# Audit Report: Access Control Policy
+        try {
+          const mdText = `# Audit Report: Access Control Policy
 **Question:** ${MOCK_REPORT_FIXTURE.question}
 - **Report ID:** ${MOCK_REPORT_FIXTURE.report_id}
 - **Audit ID:** ${MOCK_REPORT_FIXTURE.audit_id}
@@ -164,15 +192,19 @@ export default function Reports() {
 - **Executive Summary:** ${MOCK_REPORT_FIXTURE.executive_summary}
 - **Overall compliance status:** NON_COMPLIANT
 - **Risk score:** 80/125`;
-        const blob = new Blob([mdText], { type: 'text/markdown' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `audit_report_mock_report_123.md`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setDownloading(false);
+          const blob = new Blob([mdText], { type: 'text/markdown' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `audit_report_mock_report_123.md`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (err) {
+          setDownloadError('Download failed: The report could not be downloaded. Please try again.');
+        } finally {
+          setDownloadLoading(false);
+        }
       }, 1000);
       return;
     }
@@ -180,9 +212,9 @@ export default function Reports() {
     try {
       await reportApi.downloadReport(reportId);
     } catch (err) {
-      alert(err.message || 'Failed to download report document.');
+      setDownloadError('Download failed: The report could not be downloaded. Please try again.');
     } finally {
-      setDownloading(false);
+      setDownloadLoading(false);
     }
   };
 
@@ -192,7 +224,7 @@ export default function Reports() {
 
   // Header actions
   const headerAction = reportId ? (
-    <button className="btn btn-secondary" onClick={() => navigate('/reports')}>
+    <button className="btn btn-secondary" onClick={() => navigate('/reports')} style={{ width: 'auto' }}>
       <ArrowLeft size={16} />
       <span>All Reports</span>
     </button>
@@ -267,7 +299,7 @@ export default function Reports() {
         <div className="card" style={{ maxWidth: '640px', margin: '40px auto' }}>
           <div className="loader-container">
             <div className="spinner"></div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Retrieving audit report details...</div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Loading report...</div>
           </div>
         </div>
       )}
@@ -278,7 +310,7 @@ export default function Reports() {
           <div className="error-container">
             <AlertTriangle className="error-icon" />
             <div>
-              <h4 className="error-title">Report not found</h4>
+              <h4 className="error-title">Report Retrieval Error</h4>
               <p className="error-desc">{error}</p>
             </div>
           </div>
@@ -310,8 +342,19 @@ export default function Reports() {
           <ReportActions 
             onDownload={handleDownload}
             onBack={handleBackToAudits}
-            downloading={downloading}
+            downloading={downloadLoading}
           />
+
+          {/* Download Error Alert */}
+          {downloadError && (
+            <div className="error-container" style={{ margin: 0 }}>
+              <AlertTriangle className="error-icon" />
+              <div>
+                <h4 className="error-title">Download Error</h4>
+                <p className="error-desc">{downloadError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Original Question Card */}
           <div className="card" style={{ borderLeft: '4px solid var(--accent-gold)' }}>
@@ -345,7 +388,36 @@ export default function Reports() {
           <RecommendationList recommendations={report.recommendations} />
 
           {/* Traceable RAG sources */}
-          <EvidenceSummary evidenceSummary={report.evidence_summary} />
+          {evidenceLoading ? (
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">Traceable Evidence Sources</h3>
+              </div>
+              <div className="card-body">
+                <div className="loader-container" style={{ padding: '24px 0' }}>
+                  <div className="spinner"></div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Loading evidence...</div>
+                </div>
+              </div>
+            </div>
+          ) : evidenceError ? (
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">Traceable Evidence Sources</h3>
+              </div>
+              <div className="card-body">
+                <div className="error-container" style={{ margin: 0 }}>
+                  <AlertTriangle className="error-icon" />
+                  <div>
+                    <h4 className="error-title">Evidence Loading Failure</h4>
+                    <p className="error-desc">{evidenceError}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <EvidenceSummary evidenceSummary={evidence} />
+          )}
 
           {/* Human review audit trail logs */}
           <HumanReviewDetails humanReview={report.human_review} />

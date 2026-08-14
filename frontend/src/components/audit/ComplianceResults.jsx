@@ -152,24 +152,27 @@ export default function ComplianceResults({ compliance }) {
                     </div>
 
                     {/* Citations */}
-                    {finding.evidence_citations && finding.evidence_citations.length > 0 && (
+                    {((finding.evidence_citations && finding.evidence_citations.length > 0) || (finding.evidence && finding.evidence.length > 0)) && (
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>EVIDENCE CITATIONS:</span>
-                        {finding.evidence_citations.map((cite, idx) => (
-                          <span 
-                            key={idx} 
-                            style={{ 
-                              fontSize: '0.7rem', 
-                              backgroundColor: 'var(--bg-tertiary)', 
-                              color: 'var(--text-secondary)', 
-                              padding: '2px 8px', 
-                              borderRadius: '4px',
-                              fontFamily: 'var(--font-mono)'
-                            }}
-                          >
-                            {cite}
-                          </span>
-                        ))}
+                        {((finding.evidence_citations || []).concat(finding.evidence || [])).map((cite, idx) => {
+                          const label = typeof cite === 'string' ? cite : (cite.filename ? `${cite.filename}#Ch${cite.chunk_index}` : (cite.source || 'Evidence'));
+                          return (
+                            <span 
+                              key={idx} 
+                              style={{ 
+                                fontSize: '0.7rem', 
+                                backgroundColor: 'var(--bg-tertiary)', 
+                                color: 'var(--text-secondary)', 
+                                padding: '2px 8px', 
+                                borderRadius: '4px',
+                                fontFamily: 'var(--font-mono)'
+                              }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
