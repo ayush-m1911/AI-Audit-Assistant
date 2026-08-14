@@ -60,6 +60,7 @@ export default function App() {
           <Route path="/audits" element={<Audits />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/reviews" element={<Reviews />} />
+          <Route path="/reviews/:reviewId" element={<Reviews />} />
           <Route path="/reports" element={<Reports />} />
           {/* Default fallback route matching redirects to Dashboard */}
           <Route path="*" element={<Navigate to="/" replace />} />

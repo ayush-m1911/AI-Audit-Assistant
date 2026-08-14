@@ -22,10 +22,17 @@ export const reviewApi = {
    * @returns {Promise<object>} The decision application status outcome.
    */
   async submitReviewDecision(reviewId, decision, reviewerComment) {
+    const actionMapping = {
+      approve: 'continue',
+      reject: 'terminate',
+      request_more_evidence: 'retrieve_more_evidence'
+    };
+    
     const payload = {
       review_id: reviewId,
       decision: decision,
-      reviewer_comment: reviewerComment
+      reviewer_comment: reviewerComment,
+      selected_action: actionMapping[decision] || 'continue'
     };
     return api.post(`/review/${reviewId}/decision`, payload);
   }
